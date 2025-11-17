@@ -1,1 +1,10 @@
 project_id = "ozdeucqahrrbqzviazdp"
+
+[functions.analyze-thumbnail]
+verify_jwt = false
+
+[functions.generate-variations]
+verify_jwt = false
+
+[functions.generate-thumbnail]
+verify_jwt = false
