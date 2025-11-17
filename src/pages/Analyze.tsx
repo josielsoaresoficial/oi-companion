@@ -12,6 +12,7 @@ export default function Analyze() {
   const [hasAnalysis, setHasAnalysis] = useState(false);
   const [userQuestion, setUserQuestion] = useState("");
   const [isProcessingQuestion, setIsProcessingQuestion] = useState(false);
+  const [aiRecommendations, setAiRecommendations] = useState<string[]>([]);
   const { toast } = useToast();
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,6 +37,13 @@ export default function Analyze() {
     setIsProcessingQuestion(true);
     setTimeout(() => {
       setIsProcessingQuestion(false);
+      setAiRecommendations([
+        "Aumente o tamanho da fonte do texto principal em 25% para melhor visualização mobile",
+        "Use cores mais contrastantes para o texto - considere usar amarelo ou branco puro",
+        "Adicione uma borda ou sombra ao redor do texto para destacá-lo do fundo",
+        "Posicione o elemento principal mais à esquerda para seguir o padrão F de leitura",
+        "Reduza a quantidade de texto para manter o foco no elemento visual principal"
+      ]);
       toast({
         title: "Análise concluída",
         description: "A IA analisou sua pergunta e gerou recomendações.",
@@ -247,6 +255,33 @@ export default function Analyze() {
             )}
           </CardContent>
         </Card>
+
+        {aiRecommendations.length > 0 && (
+          <Card className="border-border/40 shadow-soft mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle className="w-6 h-6 text-success" />
+                Análise concluída
+              </CardTitle>
+              <CardDescription>
+                A IA analisou sua pergunta e gerou recomendações.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {aiRecommendations.map((recommendation, index) => (
+                  <div
+                    key={index}
+                    className="flex items-start gap-3 p-4 bg-primary/5 rounded-lg border border-primary/20"
+                  >
+                    <Sparkles className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-foreground">{recommendation}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
