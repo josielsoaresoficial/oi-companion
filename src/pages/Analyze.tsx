@@ -5,6 +5,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Upload, MessageSquare, CheckCircle, AlertCircle, Loader2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+
+interface AnalysisResult {
+  score: number;
+  analysis: {
+    hasText: boolean;
+    hasNumbers: boolean;
+    hasIcons: boolean;
+    hasEmojis: boolean;
+    mainElement?: string;
+    dominantColors?: string[];
+    style?: string;
+  };
+  recommendations: string[];
+}
 
 export default function Analyze() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -13,42 +28,75 @@ export default function Analyze() {
   const [userQuestion, setUserQuestion] = useState("");
   const [isProcessingQuestion, setIsProcessingQuestion] = useState(false);
   const [aiRecommendations, setAiRecommendations] = useState<string[]>([]);
+  const [analysisScore, setAnalysisScore] = useState<number>(0);
+  const [analysisDetails, setAnalysisDetails] = useState<AnalysisResult["analysis"] | null>(null);
   const { toast } = useToast();
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setUploadedImage(e.target?.result as string);
+      reader.onload = async (e) => {
+        const imageData = e.target?.result as string;
+        setUploadedImage(imageData);
         setIsAnalyzing(true);
-        // Simular análise
-        setTimeout(() => {
+        
+        try {
+          const { data, error } = await supabase.functions.invoke('analyze-thumbnail', {
+            body: { imageData, question: null }
+          });
+
+          if (error) throw error;
+
+          setAnalysisScore(data.score || 75);
+          setAnalysisDetails(data.analysis || null);
           setIsAnalyzing(false);
           setHasAnalysis(true);
-        }, 2000);
+        } catch (error) {
+          console.error("Erro na análise:", error);
+          setIsAnalyzing(false);
+          setHasAnalysis(true);
+          setAnalysisScore(75);
+          toast({
+            title: "Erro na análise",
+            description: "Não foi possível analisar a imagem. Tente novamente.",
+            variant: "destructive"
+          });
+        }
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleAskQuestion = () => {
-    if (!userQuestion.trim()) return;
+  const handleAskQuestion = async () => {
+    if (!userQuestion.trim() || !uploadedImage) return;
     setIsProcessingQuestion(true);
-    setTimeout(() => {
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-thumbnail', {
+        body: { 
+          imageData: uploadedImage,
+          question: userQuestion 
+        }
+      });
+
+      if (error) throw error;
+
+      setAiRecommendations(data.recommendations || []);
       setIsProcessingQuestion(false);
-      setAiRecommendations([
-        "Aumente o tamanho da fonte do texto principal em 25% para melhor visualização mobile",
-        "Use cores mais contrastantes para o texto - considere usar amarelo ou branco puro",
-        "Adicione uma borda ou sombra ao redor do texto para destacá-lo do fundo",
-        "Posicione o elemento principal mais à esquerda para seguir o padrão F de leitura",
-        "Reduza a quantidade de texto para manter o foco no elemento visual principal"
-      ]);
       toast({
         title: "Análise concluída",
         description: "A IA analisou sua pergunta e gerou recomendações.",
       });
-    }, 2000);
+    } catch (error) {
+      console.error("Erro ao processar pergunta:", error);
+      setIsProcessingQuestion(false);
+      toast({
+        title: "Erro ao processar",
+        description: "Não foi possível processar sua pergunta. Tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
 
   const quickQuestions = [
@@ -143,40 +191,62 @@ export default function Analyze() {
                     <div className="flex items-center justify-between p-3 bg-success/10 rounded-lg">
                       <span className="text-sm font-medium">Score de Otimização</span>
                       <Badge variant="outline" className="bg-success/20 text-success border-success/30">
-                        78/100
+                        {analysisScore}/100
                       </Badge>
                     </div>
 
                     <div className="space-y-3">
-                      <div className="flex items-start gap-3 p-3 bg-muted rounded-lg">
-                        <CheckCircle className="w-5 h-5 text-success mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">Contraste excelente</p>
-                          <p className="text-xs text-muted-foreground">
-                            Boa legibilidade em diferentes tamanhos
-                          </p>
-                        </div>
-                      </div>
+                      {analysisDetails && (
+                        <>
+                          {analysisDetails.hasText && (
+                            <div className="flex items-start gap-3 p-3 bg-muted rounded-lg">
+                              <CheckCircle className="w-5 h-5 text-success mt-0.5" />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">Texto detectado</p>
+                                <p className="text-xs text-muted-foreground">
+                                  A thumbnail contém texto para comunicação
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {!analysisDetails.hasText && (
+                            <div className="flex items-start gap-3 p-3 bg-muted rounded-lg">
+                              <AlertCircle className="w-5 h-5 text-accent mt-0.5" />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">Sem texto detectado</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Considere adicionar texto para melhor comunicação
+                                </p>
+                              </div>
+                            </div>
+                          )}
 
-                      <div className="flex items-start gap-3 p-3 bg-muted rounded-lg">
-                        <CheckCircle className="w-5 h-5 text-success mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">Composição balanceada</p>
-                          <p className="text-xs text-muted-foreground">
-                            Elementos bem distribuídos
-                          </p>
-                        </div>
-                      </div>
+                          <div className="flex items-start gap-3 p-3 bg-muted rounded-lg">
+                            <CheckCircle className="w-5 h-5 text-success mt-0.5" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">Composição visual</p>
+                              <p className="text-xs text-muted-foreground">
+                                {analysisDetails.mainElement || "Elementos bem organizados"}
+                              </p>
+                            </div>
+                          </div>
 
-                      <div className="flex items-start gap-3 p-3 bg-muted rounded-lg">
-                        <AlertCircle className="w-5 h-5 text-accent mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">Texto poderia ser maior</p>
-                          <p className="text-xs text-muted-foreground">
-                            Aumente o tamanho para melhor visualização mobile
-                          </p>
-                        </div>
-                      </div>
+                          {(analysisDetails.hasIcons || analysisDetails.hasEmojis) && (
+                            <div className="flex items-start gap-3 p-3 bg-muted rounded-lg">
+                              <CheckCircle className="w-5 h-5 text-success mt-0.5" />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">
+                                  {analysisDetails.hasEmojis ? "Emojis" : "Ícones"} detectados
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Elementos visuais presentes na composição
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 ) : null}
