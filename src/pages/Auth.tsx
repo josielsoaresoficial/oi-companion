@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { Clock } from "@/components/Clock";
 
 const emailSchema = z.string().email("Email inválido").max(255, "Email muito longo");
 const passwordSchema = z.string().min(6, "Senha deve ter no mínimo 6 caracteres").max(100, "Senha muito longa");
@@ -115,6 +116,8 @@ export default function Auth() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-8 animate-fade-in">
+        <Clock />
+        
         {mode !== "login" && (
           <Button
             variant="ghost"
