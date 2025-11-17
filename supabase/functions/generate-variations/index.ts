@@ -152,31 +152,6 @@ serve(async (req) => {
 
     const variations = [];
 
-    // Função de retry com backoff exponencial
-    async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3) {
-      for (let attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-          const response = await fetch(url, options);
-          
-          // Se for 503, tentar novamente
-          if (response.status === 503 && attempt < maxRetries - 1) {
-            const waitTime = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
-            console.log(`Attempt ${attempt + 1} failed with 503, retrying in ${waitTime}ms...`);
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-            continue;
-          }
-          
-          return response;
-        } catch (error) {
-          if (attempt === maxRetries - 1) throw error;
-          const waitTime = Math.pow(2, attempt) * 1000;
-          console.log(`Attempt ${attempt + 1} failed, retrying in ${waitTime}ms...`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-        }
-      }
-      throw new Error('Max retries exceeded');
-    }
-
     // Gerar múltiplas variações
     for (let i = 0; i < count; i++) {
       console.log(`Generating variation ${i + 1}/${count}`);
@@ -204,14 +179,14 @@ serve(async (req) => {
         });
       }
 
-      const response = await fetchWithRetry('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${LOVABLE_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-image-preview',
+          model: 'google/gemini-2.5-flash-image',
           messages: [
             {
               role: 'user',
@@ -220,7 +195,7 @@ serve(async (req) => {
           ],
           modalities: ['image', 'text']
         })
-      }, 3);
+      });
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -242,9 +217,7 @@ serve(async (req) => {
         
         if (response.status === 503) {
           return new Response(
-            JSON.stringify({ 
-              error: 'O serviço de geração de imagens está temporariamente sobrecarregado. Por favor, aguarde 30-60 segundos e tente novamente. Se o problema persistir, tente reduzir o número de variações.' 
-            }),
+            JSON.stringify({ error: 'Serviço de IA temporariamente indisponível. Tente novamente em alguns instantes.' }),
             { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
